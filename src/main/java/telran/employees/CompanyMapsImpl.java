@@ -1,75 +1,109 @@
 package telran.employees;
 
 import java.util.*;
-
+import java.util.stream.Collectors;
+//So far we do consider optimization
 public class CompanyMapsImpl implements Company {
-    private TreeMap<Long, Employee> employees = new TreeMap<>();
-    private HashMap<String, List<Employee>> employeesDepartment = new HashMap<>();
-    private TreeMap<Float, List<Manager>> factorManagers = new TreeMap<>();
+	TreeMap<Long, Employee> employees = new TreeMap<>();
+	HashMap<String, List<Employee>> employeesDepartment = new HashMap<>();
+	TreeMap<Float, List<Manager>> factorManagers = new TreeMap<>();
+	private class CompanyIterator implements Iterator<Employee>{
+		Iterator<Employee> iterator = employees.values().iterator();
+		Employee prev;
+		@Override
+		public boolean hasNext() {
+			
+			return iterator.hasNext();
+		}
 
-    @Override
-    public Iterator<Employee> iterator() {
-        return employees.values().iterator();
-    }
+		@Override
+		public Employee next() {
+			prev = iterator.next();
+			return prev;
+		}
+		@Override
+		public void remove() {
+			iterator.remove();
+			removeFromIndexMaps(prev);
+		}
+		
+	}
+	@Override
+	public Iterator<Employee> iterator() {
+		
+		return new CompanyIterator();
+	}
 
-    @Override
-    public void addEmployee(Employee empl) {
-        long id = empl.getId();
-        if (employees.containsKey(id)) {
-            throw new IllegalStateException("Employee with ID " + id + " already exists");
-        }
-        employees.put(id, empl);
-        employeesDepartment.computeIfAbsent(empl.getDepartment(), k -> new ArrayList<>()).add(empl);
-        if (empl instanceof Manager) {
-            Manager manager = (Manager) empl;
-            factorManagers.computeIfAbsent(manager.getFactor(), k -> new ArrayList<>()).add(manager);
-        }
-    }
+	@Override
+	public void addEmployee(Employee empl) {
+		if (employees.putIfAbsent(empl.getId(), empl) != null) {
+			throw new IllegalStateException();
+		}
+		addToIndexMap(employeesDepartment, empl.getDepartment(), empl);
+		if (empl instanceof Manager) {
+			Manager manager = (Manager)empl;
+			addToIndexMap(factorManagers, manager.factor, manager);
+		}
 
-    @Override
-    public Employee getEmployee(long id) {
-        return employees.get(id);
-    }
+	}
 
-    @Override
-    public Employee removeEmployee(long id) {
-        Employee removed = employees.remove(id);
-        if (removed != null) {
-            List<Employee> departmentList = employeesDepartment.get(removed.getDepartment());
-            if (departmentList != null) {
-                departmentList.remove(removed);
-            }
-            if (removed instanceof Manager) {
-                Manager manager = (Manager) removed;
-                List<Manager> factorList = factorManagers.get(manager.getFactor());
-                if (factorList != null) {
-                    factorList.remove(manager);
-                    if (factorList.isEmpty()) {
-                        factorManagers.remove(manager.getFactor());
-                    }
-                }
-            }
-        }
-        return removed;
-    }
+	@Override
+	public Employee getEmployee(long id) {
+		
+		return employees.get(id);
+	}
 
-    @Override
-    public int getDepartmentBudget(String department) {
-        List<Employee> employeesInDepartment = employeesDepartment.getOrDefault(department, Collections.emptyList());
-        return employeesInDepartment.stream().mapToInt(Employee::computeSalary).sum();
-    }
+	@Override
+	public Employee removeEmployee(long id) {
+		Employee empl = employees.remove(id);
+		if(empl == null) {
+			throw new NoSuchElementException();
+		}
+		removeFromIndexMaps(empl);
+		return empl;
+	}
 
-    @Override
-    public String[] getDepartments() {
-        return employeesDepartment.keySet().toArray(new String[0]);
-    }
+	private void removeFromIndexMaps(Employee empl) {
+		removeFromIndexMap(employeesDepartment, empl.getDepartment(), empl);
+		if(empl instanceof Manager) {
+			Manager manager = (Manager)empl;
+			removeFromIndexMap(factorManagers, manager.factor, manager);
+		}
+	}
+	private <K, V extends Employee> void removeFromIndexMap(Map<K, List<V>> map, K key, V empl) {
+		List<V> list = map.get(key);
+		list.remove(empl);
+		if(list.isEmpty()) {
+			map.remove(key);
+		}
+		
+	}
+	private <K, V extends Employee> void addToIndexMap(Map<K, List<V>> map, K key, V empl) {
+		map.computeIfAbsent(key, k -> new ArrayList<>()).add(empl);
+		
+	}
 
-    @Override
-    public Manager[] getManagersWithMostFactor() {
-        if (factorManagers.isEmpty()) {
-            return new Manager[0];
-        }
-        List<Manager> managers = factorManagers.lastEntry().getValue();
-        return managers.toArray(new Manager[managers.size()]);
-    }
+	@Override
+	public int getDepartmentBudget(String department) {
+		return employeesDepartment.getOrDefault(department,
+				Collections.emptyList()).stream()
+		.collect(Collectors.summingInt(Employee::computeSalary));
+	}
+
+	@Override
+	public String[] getDepartments() {
+		//TOFIX
+		return employeesDepartment.keySet().stream().sorted()
+				.toArray(String[]::new);
+	}
+
+	@Override
+	public Manager[] getManagersWithMostFactor() {
+		Manager[] res = new Manager[0];
+		if(!factorManagers.isEmpty()) {
+			res = factorManagers.lastEntry().getValue().toArray(res);
+		}
+		return res;
+	}
+
 }

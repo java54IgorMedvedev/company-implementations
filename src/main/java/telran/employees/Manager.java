@@ -3,7 +3,7 @@ package telran.employees;
 import java.util.Objects;
 
 public class Manager extends Employee {
-    private float factor;
+    float factor;
 
     public Manager(long id, int basicSalary, String department, float factor) {
         super(id, basicSalary, department);
