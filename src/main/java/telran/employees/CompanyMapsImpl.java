@@ -3,7 +3,7 @@ package telran.employees;
 import java.io.*;
 import java.util.*;
 import java.util.stream.Collectors;
-
+import org.json.JSONObject;
 import telran.io.Persistable;
 
 public class CompanyMapsImpl implements Company, Persistable {
@@ -106,8 +106,10 @@ public class CompanyMapsImpl implements Company, Persistable {
 
     @Override
     public void save(String filePathStr) {
-        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(filePathStr))) {
-            oos.writeObject(employees);
+        try (PrintWriter writer = new PrintWriter(new FileWriter(filePathStr))) {
+            for (Employee empl : employees.values()) {
+                writer.println(empl.getJSON());
+            }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -115,23 +117,17 @@ public class CompanyMapsImpl implements Company, Persistable {
 
     @Override
     public void restore(String filePathStr) {
-        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(filePathStr))) {
-            employees = (TreeMap<Long, Employee>) ois.readObject();
-            rebuildIndexes();
-        } catch (IOException | ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void rebuildIndexes() {
-        employeesDepartment.clear();
-        factorManagers.clear();
-        for (Employee empl : employees.values()) {
-            addToIndexMap(employeesDepartment, empl.getDepartment(), empl);
-            if (empl instanceof Manager) {
-                Manager manager = (Manager) empl;
-                addToIndexMap(factorManagers, manager.factor, manager);
+        try (BufferedReader reader = new BufferedReader(new FileReader(filePathStr))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                JSONObject jsonObject = new JSONObject(line);
+                String className = jsonObject.getString("className");
+                Employee empl = (Employee) Class.forName(className).getConstructor().newInstance();
+                empl.setObject(line);
+                addEmployee(empl);
             }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 }

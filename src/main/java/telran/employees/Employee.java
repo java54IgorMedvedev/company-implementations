@@ -1,9 +1,8 @@
 package telran.employees;
 
-import java.util.Objects;
 import java.io.Serializable;
+import java.util.Objects;
 import org.json.JSONObject;
-
 import telran.io.JSONable;
 
 public class Employee implements Serializable, JSONable {
@@ -12,8 +11,7 @@ public class Employee implements Serializable, JSONable {
     private int basicSalary;
     private String department;
 
-    public Employee() {
-    }
+    public Employee() {}
 
     public Employee(long id, int basicSalary, String department) {
         this.id = id;
@@ -44,16 +42,15 @@ public class Employee implements Serializable, JSONable {
 
     @Override
     public boolean equals(Object obj) {
-        boolean result = false;
         if (this == obj) {
-            result = true;
-        } else if (obj != null && getClass() == obj.getClass()) {
-            Employee other = (Employee) obj;
-            result = id == other.id;
+            return true;
         }
-        return result;
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        Employee other = (Employee) obj;
+        return id == other.id;
     }
-
 
     @Override
     public String getJSON() {
@@ -78,14 +75,7 @@ public class Employee implements Serializable, JSONable {
     @Override
     public void setObject(String json) {
         JSONObject jsonObject = new JSONObject(json);
-        String className = jsonObject.getString("className");
-        try {
-            Employee empl = (Employee) Class.forName(className)
-                    .getConstructor().newInstance();
-            empl.fillEmployee(jsonObject);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        fillEmployee(jsonObject);
     }
 
     protected void fillEmployee(JSONObject jsonObject) {
